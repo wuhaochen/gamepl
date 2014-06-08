@@ -20,18 +20,33 @@
     Payoff p;
   } Player;
 
+  typedef struct NE{
+    int p1;
+    int p2;
+    int s1;
+    int s2;
+  } NE;
+
   typedef struct Game {
     int npure;
     int nmix;
     int nplayer;
     Player players[MAXPLAYER];
+    NE ne[MAXSTR];
   } Game;
+
+  typedef struct Max {
+    int m;
+    int n;
+    int max[MAXSTR][MAXSTR];
+  } Max;
 
   Game games[MAXGAME];
   int ngame = 0;
   int current_player;
   Strategies temp;
   Payoff tempp;
+  Max ma,mb;
 
   int yylex(void);
   int findplayer(Game*,int);
@@ -45,6 +60,8 @@
   void appendpayoff(int);
   void yyerror(char*);
   void printgame();
+  void cleanmax();
+  void cacl_ne();
 %}
 
 %token LBRACE RBRACE LBRAK RBRAK COLON COMMA DOT ARROW
@@ -219,27 +236,95 @@ void appendpayoff(int name) {
   }
 }
 
+void cleanmax() {
+  ma.m = 0;
+  ma.n = 0;
+  mb.m = 0;
+  mb.n = 0;
+  int i,j;
+  for(i=0;i<MAXSTR;i++) {
+    for(j=0;j<MAXSTR;j++) {
+      ma.max[i][j] = 0;
+      mb.max[i][j] = 0;
+    }
+  }
+}
+
+void cacl_ne(){
+  cleanmax();
+  ma.m = games[ngame].players[0].s.n;
+  ma.n = games[ngame].players[1].s.n;
+  mb.m = games[ngame].players[0].s.n;
+  mb.n = games[ngame].players[1].s.n;
+  int i,j;
+  int max;
+
+  for(j=0;j<ma.n;j++) {
+    max = games[ngame].players[0].p.v[0][j];
+    for(i=0;i<ma.m;i++) {
+      if(games[ngame].players[0].p.v[i][j] > max) {
+	max = games[ngame].players[0].p.v[i][j];
+      }
+    }
+    for(i=0;i<ma.m;i++) {
+      if(games[ngame].players[0].p.v[i][j] == max) {
+	ma.max[i][j] = 1;
+      }
+    }
+  }
+
+  for(i=0;i<mb.m;i++) {
+    max = games[ngame].players[1].p.v[i][0];
+    for(j=0;j<mb.n;j++) {
+      if(games[ngame].players[1].p.v[i][j] > max) {
+	max = games[ngame].players[1].p.v[i][j];
+      }
+    }
+    for(j=0;j<ma.m;j++) {
+      if(games[ngame].players[1].p.v[i][j] == max) {
+	mb.max[i][j] = 1;
+      }
+    }
+  }
+
+  for(i=0;i<ma.m;i++) {
+    for(j=0;j<ma.n;j++) {
+      if(ma.max[i][j] && mb.max[i][j]) {
+	games[ngame].ne[games[ngame].npure].p1 = games[ngame].players[0].name;
+	games[ngame].ne[games[ngame].npure].p2 = games[ngame].players[1].name;
+	games[ngame].ne[games[ngame].npure].s1 = games[ngame].players[0].s.str[i];
+	games[ngame].ne[games[ngame].npure].s2 = games[ngame].players[i].s.str[j];
+	games[ngame].npure++;
+      }
+    }
+  }
+}
+
 void printgame() {
-  fprintf(stdout, "Game #%d:\n",ngame+1);
-  fprintf(stdout, "Player:%c,%c\n",games[ngame].players[0].name+'A',games[ngame].players[1].name+'A');
-  fprintf(stdout, "Player %c:\n",games[ngame].players[0].name+'A');
-  fprintf(stdout, "%d strategies.\n",games[ngame].players[0].s.n);
-  fprintf(stdout, "%d %d",games[ngame].players[1].p.v[1][1],games[ngame].players[1].nother);
+  //fprintf(stdout, "Game #%d:\n",ngame+1);
+  //fprintf(stdout, "Player:%c,%c\n",games[ngame].players[0].name+'A',games[ngame].players[1].name+'A');
+  //fprintf(stdout, "Player %c:\n",games[ngame].players[0].name+'A');
+  //fprintf(stdout, "%d strategies.\n",games[ngame].players[0].s.n);
+  //fprintf(stdout, "%d %d\n",games[ngame].players[1].p.v[1][1],games[ngame].players[1].nother);
+  cacl_ne();
   fprintf(stdout, "Game #%d has following Nash Equlibrium:\n",ngame+1);
   if(games[ngame].npure > 0) {
     fprintf(stdout, "%d pure strategy Nash Equlibrium is found:\n",games[ngame].npure);
-    fprintf(stdout, " ");
+    int i;
+    for(i=0;i<games[ngame].npure;i++) {
+      fprintf(stdout, "%c.%c,%c.%c\n",games[ngame].ne[i].p1+'A',games[ngame].ne[i].s1+'A',games[ngame].ne[i].p2+'A',games[ngame].ne[i].s2+'A');
+    }
   }
   else {
     fprintf(stdout, "No pure strategy Nash Equlibrium is found.\n");
   }
-  if(games[ngame].nmix > 0) {
+  /*if(games[ngame].nmix > 0) {
     fprintf(stdout, "%d mixed strategy Nash Equlibrium is found:\n",games[ngame].nmix);
     fprintf(stdout, " ");
   }
   else {
     fprintf(stdout, "No mixed strategy Nash Equlibrium is found.\n");
-  }
+    }*/
 }
 
 void yyerror(char *s) {

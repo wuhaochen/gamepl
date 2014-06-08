@@ -1,0 +1,23 @@
+game:prisoner_dilemma
+{
+  player:
+    A,B
+  strategy:
+    A{L,R}
+    B{L,R}
+  payoff:
+    A
+    {
+      [A.L,B.L]->1
+      [A.L,B.R]->0
+      [A.R,B.L]->0
+      [A.R,B.R]->1
+    }
+    B
+    {
+      [A.L,B.L]->1
+      [A.L,B.R]->0
+      [A.R,B.L]->0
+      [A.R,B.R]->1
+    }
+}

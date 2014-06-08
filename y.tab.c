@@ -41,18 +41,33 @@ static int yygrowstack(void);
     Payoff p;
   } Player;
 
+  typedef struct NE{
+    int p1;
+    int p2;
+    int s1;
+    int s2;
+  } NE;
+
   typedef struct Game {
     int npure;
     int nmix;
     int nplayer;
     Player players[MAXPLAYER];
+    NE ne[MAXSTR];
   } Game;
+
+  typedef struct Max {
+    int m;
+    int n;
+    int max[MAXSTR][MAXSTR];
+  } Max;
 
   Game games[MAXGAME];
   int ngame = 0;
   int current_player;
   Strategies temp;
   Payoff tempp;
+  Max ma,mb;
 
   int yylex(void);
   int findplayer(Game*,int);
@@ -66,7 +81,9 @@ static int yygrowstack(void);
   void appendpayoff(int);
   void yyerror(char*);
   void printgame();
-#line 70 "y.tab.c"
+  void cleanmax();
+  void cacl_ne();
+#line 87 "y.tab.c"
 #define LBRACE 257
 #define RBRACE 258
 #define LBRAK 259
@@ -214,7 +231,7 @@ static short   *yyss;
 static short   *yysslim;
 static YYSTYPE *yyvs;
 static int      yystacksize;
-#line 119 "game.y"
+#line 136 "game.y"
 
 int findstrategy(Strategies* s, int name) {
   int i;
@@ -318,27 +335,95 @@ void appendpayoff(int name) {
   }
 }
 
+void cleanmax() {
+  ma.m = 0;
+  ma.n = 0;
+  mb.m = 0;
+  mb.n = 0;
+  int i,j;
+  for(i=0;i<MAXSTR;i++) {
+    for(j=0;j<MAXSTR;j++) {
+      ma.max[i][j] = 0;
+      mb.max[i][j] = 0;
+    }
+  }
+}
+
+void cacl_ne(){
+  cleanmax();
+  ma.m = games[ngame].players[0].s.n;
+  ma.n = games[ngame].players[1].s.n;
+  mb.m = games[ngame].players[0].s.n;
+  mb.n = games[ngame].players[1].s.n;
+  int i,j;
+  int max;
+
+  for(j=0;j<ma.n;j++) {
+    max = games[ngame].players[0].p.v[0][j];
+    for(i=0;i<ma.m;i++) {
+      if(games[ngame].players[0].p.v[i][j] > max) {
+	max = games[ngame].players[0].p.v[i][j];
+      }
+    }
+    for(i=0;i<ma.m;i++) {
+      if(games[ngame].players[0].p.v[i][j] == max) {
+	ma.max[i][j] = 1;
+      }
+    }
+  }
+
+  for(i=0;i<mb.m;i++) {
+    max = games[ngame].players[1].p.v[i][0];
+    for(j=0;j<mb.n;j++) {
+      if(games[ngame].players[1].p.v[i][j] > max) {
+	max = games[ngame].players[1].p.v[i][j];
+      }
+    }
+    for(j=0;j<ma.m;j++) {
+      if(games[ngame].players[1].p.v[i][j] == max) {
+	mb.max[i][j] = 1;
+      }
+    }
+  }
+
+  for(i=0;i<ma.m;i++) {
+    for(j=0;j<ma.n;j++) {
+      if(ma.max[i][j] && mb.max[i][j]) {
+	games[ngame].ne[games[ngame].npure].p1 = games[ngame].players[0].name;
+	games[ngame].ne[games[ngame].npure].p2 = games[ngame].players[1].name;
+	games[ngame].ne[games[ngame].npure].s1 = games[ngame].players[0].s.str[i];
+	games[ngame].ne[games[ngame].npure].s2 = games[ngame].players[i].s.str[j];
+	games[ngame].npure++;
+      }
+    }
+  }
+}
+
 void printgame() {
-  fprintf(stdout, "Game #%d:\n",ngame+1);
-  fprintf(stdout, "Player:%c,%c\n",games[ngame].players[0].name+'A',games[ngame].players[1].name+'A');
-  fprintf(stdout, "Player %c:\n",games[ngame].players[0].name+'A');
-  fprintf(stdout, "%d strategies.\n",games[ngame].players[0].s.n);
-  fprintf(stdout, "%d %d",games[ngame].players[1].p.v[1][1],games[ngame].players[1].nother);
+  //fprintf(stdout, "Game #%d:\n",ngame+1);
+  //fprintf(stdout, "Player:%c,%c\n",games[ngame].players[0].name+'A',games[ngame].players[1].name+'A');
+  //fprintf(stdout, "Player %c:\n",games[ngame].players[0].name+'A');
+  //fprintf(stdout, "%d strategies.\n",games[ngame].players[0].s.n);
+  //fprintf(stdout, "%d %d\n",games[ngame].players[1].p.v[1][1],games[ngame].players[1].nother);
+  cacl_ne();
   fprintf(stdout, "Game #%d has following Nash Equlibrium:\n",ngame+1);
   if(games[ngame].npure > 0) {
     fprintf(stdout, "%d pure strategy Nash Equlibrium is found:\n",games[ngame].npure);
-    fprintf(stdout, " ");
+    int i;
+    for(i=0;i<games[ngame].npure;i++) {
+      fprintf(stdout, "%c.%c,%c.%c\n",games[ngame].ne[i].p1+'A',games[ngame].ne[i].s1+'A',games[ngame].ne[i].p2+'A',games[ngame].ne[i].s2+'A');
+    }
   }
   else {
     fprintf(stdout, "No pure strategy Nash Equlibrium is found.\n");
   }
-  if(games[ngame].nmix > 0) {
+  /*if(games[ngame].nmix > 0) {
     fprintf(stdout, "%d mixed strategy Nash Equlibrium is found:\n",games[ngame].nmix);
     fprintf(stdout, " ");
   }
   else {
     fprintf(stdout, "No mixed strategy Nash Equlibrium is found.\n");
-  }
+    }*/
 }
 
 void yyerror(char *s) {
@@ -350,7 +435,7 @@ int main(void) {
   yyparse();
   return 0;
 }
-#line 354 "y.tab.c"
+#line 439 "y.tab.c"
 /* allocate initial stack or double stack size, up to YYMAXDEPTH */
 static int yygrowstack(void)
 {
@@ -532,46 +617,46 @@ yyreduce:
     switch (yyn)
     {
 case 3:
-#line 63 "game.y"
+#line 80 "game.y"
 { printgame(); ngame++; }
 break;
 case 4:
-#line 67 "game.y"
+#line 84 "game.y"
 { ; }
 break;
 case 6:
-#line 75 "game.y"
+#line 92 "game.y"
 { addplayer(yyvsp[0]); }
 break;
 case 7:
-#line 76 "game.y"
+#line 93 "game.y"
 { addplayer(yyvsp[0]); }
 break;
 case 8:
-#line 80 "game.y"
+#line 97 "game.y"
 { buildpayoff(); }
 break;
 case 11:
-#line 89 "game.y"
+#line 106 "game.y"
 { addstrtoplayer(yyvsp[-3]); temp.n=0; }
 break;
 case 12:
-#line 93 "game.y"
+#line 110 "game.y"
 { addstrategy(yyvsp[0]); }
 break;
 case 13:
-#line 94 "game.y"
+#line 111 "game.y"
 { addstrategy(yyvsp[0]); }
 break;
 case 17:
-#line 107 "game.y"
+#line 124 "game.y"
 { appendpayoff(yyvsp[-3]); }
 break;
 case 20:
-#line 116 "game.y"
+#line 133 "game.y"
 { addpayoff(yyvsp[-9],yyvsp[-7],yyvsp[-5],yyvsp[-3],yyvsp[0]); }
 break;
-#line 575 "y.tab.c"
+#line 660 "y.tab.c"
     }
     yyssp -= yym;
     yystate = *yyssp;
